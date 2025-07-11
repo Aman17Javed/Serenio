@@ -1,0 +1,154 @@
+/* Login.css */
+
+body {
+  background-color: #f7f9fc;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.login-card {
+  background-color: white;
+  padding: 40px;
+  width: 360px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.avatar-icon {
+  font-size: 32px;
+  background-color: #e0e7ff;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 24px;
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  margin-bottom: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.password-wrapper {
+  position: relative;
+}
+
+.eye-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.forgot-link {
+  text-decoration: none;
+  color: #4f46e5;
+}
+
+.login-button {
+  background-color: #4f46e5;
+  color: white;
+  padding: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.divider {
+  margin: 12px 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.social-button {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #ffffff;
+}
+
+.google {
+  color: #db4437;
+}
+
+.facebook {
+  color: #4267B2;
+}
+
+.social-icon {
+  font-size: 16px;
+}
+
+.signup-text {
+  font-size: 13px;
+  margin-top: 20px;
+  color: #374151;
+}
+
+.signup-link {
+  color: #4f46e5;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.error-message {
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}

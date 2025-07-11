@@ -1,0 +1,86 @@
+.about-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+    font-family: Arial, sans-serif;
+    background-color: #f7fdf9;
+  }
+  
+  .about-container h2 {
+    text-align: center;
+    color: #2d6a4f;
+    margin-bottom: 0.5rem;
+  }
+  
+  .about-container p {
+    text-align: center;
+    color: #555;
+    margin-bottom: 1.5rem;
+  }
+  
+  .search-bar {
+    width: calc(100% - 120px);
+    padding: 10px;
+    margin-bottom: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+  }
+  
+  .filter-button {
+    padding: 10px 16px;
+    margin-left: 10px;
+    background-color: #40916c;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .psychologist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .psychologist-card {
+    background-color: white;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .psychologist-card h3 {
+    margin: 0;
+    color: #1b4332;
+  }
+  
+  .psychologist-card p {
+    margin: 2px 0;
+    color: #444;
+  }
+  
+  .book-button {
+    align-self: flex-start;
+    margin-top: 0.5rem;
+    background-color: #2d6a4f;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  
+  .load-more {
+    display: block;
+    margin: 2rem auto 0;
+    padding: 10px 20px;
+    background-color: #95d5b2;
+    color: #1b4332;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  
