@@ -1,5 +1,5 @@
-console.log("JWT_SECRET is:", process.env.JWT_SECRET);
 require('dotenv').config();
+console.log("JWT_SECRET is:", process.env.JWT_SECRET);
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
