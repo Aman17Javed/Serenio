@@ -43,4 +43,18 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// routes/payment.js
+router.get('/my-payments', authMiddleware, async (req, res) => {
+  try {
+    const payments = await Payment.find({ userId: req.user.userId })
+      .populate('appointmentId'); // optional
+
+    res.status(200).json(payments);
+  } catch (error) {
+    console.error('Payment history error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
 module.exports = router;
