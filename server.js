@@ -38,3 +38,7 @@ app.use('/api/appointments', appointmentRoutes);
 
 const paymentRoutes = require('./routes/payment');
 app.use('/api/payments', paymentRoutes);
+
+const chatRoutes = require('./routes/chat');
+app.use('/api/chat', chatRoutes);
+
