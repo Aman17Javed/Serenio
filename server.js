@@ -42,3 +42,6 @@ app.use('/api/payments', paymentRoutes);
 const chatRoutes = require('./routes/chat');
 app.use('/api/chat', chatRoutes);
 
+const chatbotRoute = require('./routes/chatbot');
+app.use('/api/chatbot', chatbotRoute);
+

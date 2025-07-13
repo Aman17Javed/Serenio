@@ -2,7 +2,7 @@
 const express = require('express');
 const router  = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
-const ChatLog = require('../models/chatLog');
+const ChatLog = require('../models/chatlog');
 
 /**
  * POST /api/chat
