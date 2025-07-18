@@ -26,10 +26,14 @@ mongoose.connect(process.env.MONGODB_URI)
 const privateRoutes = require('./routes/private');
 app.use('/api/private', privateRoutes);
 
+
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 Base URL: http://localhost:${PORT}`);
+  console.log(`🤖 Chatbot health check: http://localhost:${PORT}/api/chatbot/health`);
+});
 const profileRoutes = require('./routes/profile');
 app.use('/api/profile', profileRoutes);
 
@@ -44,4 +48,5 @@ app.use('/api/chat', chatRoutes);
 
 const chatbotRoute = require('./routes/chatbot');
 app.use('/api/chatbot', chatbotRoute);
+
 
