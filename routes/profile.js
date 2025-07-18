@@ -9,6 +9,7 @@ const User = require('../models/User'); // Mongoose User model
 // @desc    Get user profile
 // @access  Private
 router.get('/', jwtAuth, async (req, res) => {
+  console.log('User role:', req.user.role);
   try {
     const user = await User.findById(req.user.userId).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
