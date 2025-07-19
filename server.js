@@ -42,6 +42,8 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
+const reportRoutes = require('./routes/report');
+app.use('/api/report', reportRoutes);
 // console.log('Routes loaded:', require('./routes/profile'));
 // Start server
 const PORT = process.env.PORT || 5000;
