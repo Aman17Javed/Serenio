@@ -4,6 +4,7 @@ const verifyToken = require('../middleware/authMiddleware');
 const Appointment = require('../models/appointment');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
+const User = require('../models/user');
 require('dotenv').config();
 
 // @route POST /api/appointments/book
@@ -25,14 +26,34 @@ router.post('/book', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Invalid psychologistId format' });
     }
 
-    // Check for maximum 3 active bookings
+    // Check for maximum 3 active bookings (excluding cancelled)
     const activeBookings = await Appointment.countDocuments({
       userId: req.user.userId,
-      status: 'Booked'
+      status: 'Booked',
+      $nor: [{ status: 'Cancelled' }]
     }).session(session);
     if (activeBookings >= 3) {
       await session.abortTransaction();
       return res.status(400).json({ message: 'Maximum 3 bookings allowed' });
+    }
+
+    // R6: Check for time conflict with existing appointments
+    const conflictingAppointment = await Appointment.findOne({
+      psychologistId,
+      date,
+      timeSlot,
+      status: 'Booked'
+    }).session(session);
+    if (conflictingAppointment) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Time slot already booked' });
+    }
+
+    // R7: Verify psychologist role
+    const psychologist = await User.findById(psychologistId).session(session);
+    if (!psychologist || psychologist.role !== 'Psychologist') {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Invalid or unavailable psychologist' });
     }
 
     const newAppointment = new Appointment({
@@ -97,6 +118,10 @@ router.delete('/cancel/:id', verifyToken, async (req, res) => {
 
     if (!appointment) {
       return res.status(404).json({ message: 'Appointment not found' });
+    }
+
+    if (appointment.status === 'Cancelled') {
+      return res.status(400).json({ message: 'Appointment already cancelled' });
     }
 
     appointment.status = 'Cancelled';
