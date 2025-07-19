@@ -1,28 +1,19 @@
-// routes/profile.js
-
 const express = require('express');
 const router = express.Router();
-const jwtAuth = require('../middleware/authMiddleware'); // JWT middleware
-const User = require('../models/User'); // Mongoose User model
+const jwtAuth = require('../middleware/authMiddleware');
+const User = require('../models/user');
 
-// @route   GET /api/profile
-// @desc    Get user profile
-// @access  Private
 router.get('/', jwtAuth, async (req, res) => {
-  console.log('User role:', req.user.role);
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user.userId).select('-refreshToken -password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     res.json(user);
   } catch (err) {
-    console.error('Profile GET error:', err);
+    console.error('Profile error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// @route   PUT /api/profile
-// @desc    Update user profile
-// @access  Private
 router.put('/', jwtAuth, async (req, res) => {
   const { name, email } = req.body;
   try {
@@ -31,7 +22,6 @@ router.put('/', jwtAuth, async (req, res) => {
       { name, email },
       { new: true, runValidators: true }
     ).select('-password');
-
     if (!updatedUser) return res.status(404).json({ message: 'User not found' });
     res.json({ message: 'Profile updated successfully', user: updatedUser });
   } catch (err) {
