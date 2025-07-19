@@ -25,6 +25,16 @@ router.post('/book', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Invalid psychologistId format' });
     }
 
+    // Check for maximum 3 active bookings
+    const activeBookings = await Appointment.countDocuments({
+      userId: req.user.userId,
+      status: 'Booked'
+    }).session(session);
+    if (activeBookings >= 3) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: 'Maximum 3 bookings allowed' });
+    }
+
     const newAppointment = new Appointment({
       userId: req.user.userId,
       psychologistId,
