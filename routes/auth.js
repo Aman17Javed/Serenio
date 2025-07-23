@@ -66,5 +66,19 @@ router.put('/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+router.delete('/delete', authenticateToken, async (req, res) => {
+  try {
+    await User.deleteOne({ _id: req.user.userId });
+    await ChatLog.deleteMany({ userId: req.user.userId });
+    await Transaction.deleteMany({ userId: req.user.userId });
+    await Recommendation.deleteMany({ userId: req.user.userId });
+    await Feedback.deleteMany({ userId: req.user.userId });
+    console.log(`User data deleted for userId: ${req.user.userId}`);
+    res.json({ message: 'User data deleted' });
+  } catch (error) {
+    console.error('Delete error:', error.message);
+    res.status(500).json({ error: 'Failed to delete user data: ' + error.message });
+  }
+})
 
 module.exports = router;

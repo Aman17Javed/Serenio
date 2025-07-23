@@ -29,6 +29,9 @@ app.use('/api/payments', paymentRoutes);
 const chatRoutes = require('./routes/chat');
 app.use('/api/chat', chatRoutes);
 
+const webhookRoutes = require('./routes/webhook');
+app.use('/api/webhook', webhookRoutes);
+
 const chatbotRoute = require('./routes/chatbot');
 app.use('/api/chatbot', chatbotRoute);
 
@@ -46,6 +49,12 @@ const reportRoutes = require('./routes/report');
 app.use('/api/report', reportRoutes);
 // console.log('Routes loaded:', require('./routes/profile'));
 // Start server
+const recommendationRoutes = require('./routes/recommendations');
+app.use('/api/recommendations', recommendationRoutes);
+
+const feedbackRoutes = require('./routes/feedback');
+app.use('/api/feedback', feedbackRoutes);
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
