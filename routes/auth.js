@@ -3,78 +3,82 @@ console.log("JWT_SECRET is:", process.env.JWT_SECRET);
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
-const User = require('../models/User'); // Ensure this path is correct
-const jwt =require('jsonwebtoken')
+const User = require('../models/user');
+const jwt = require('jsonwebtoken');
+const authenticateToken = require('../middleware/authMiddleware');
 
-// 
-
-
-// ✅ Register Route
-router.post('/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
-
-    // Check for missing fields
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    // Check for existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({ message: 'User already exists' });
-    }
-
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Save new user
-    const newUser = new User({ name, email, password: hashedPassword });
-    await newUser.save();
-
-    res.status(201).json({ message: `User ${name} registered successfully.` });
-  } catch (error) {
-    console.error('Error during registration:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-
-// ✅ Login Route
 router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
-
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    // Find user by email
     const user = await User.findOne({ email });
-    if (!user) {
+    if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-
-    // Compare password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Create JWT
-    const token = jwt.sign(
-      { userId: user._id, name: user.name, email: user.email },
+    const accessToken = jwt.sign(
+      { userId: user._id, name: user.name, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '2d' }
+      { expiresIn: '15m' }
     );
-
-    res.status(200).json({ message: 'Login successful', token });
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+    user.refreshToken = refreshToken;
+    await user.save();
+    res.json({ message: 'Login successful', accessToken, refreshToken });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-module.exports = router;
+router.post('/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email already registered' });
+    }
+    const user = new User({ name, email, password, role: 'User' });
+    await user.save();
+    res.status(201).json({ message: `User ${name} registered successfully.` });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
+router.put('/profile', authenticateToken, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { name, email },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'Profile updated', user });
+  } catch (err) {
+    console.error('Profile update error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.delete('/delete', authenticateToken, async (req, res) => {
+  try {
+    await User.deleteOne({ _id: req.user.userId });
+    await ChatLog.deleteMany({ userId: req.user.userId });
+    await Transaction.deleteMany({ userId: req.user.userId });
+    await Recommendation.deleteMany({ userId: req.user.userId });
+    await Feedback.deleteMany({ userId: req.user.userId });
+    console.log(`User data deleted for userId: ${req.user.userId}`);
+    res.json({ message: 'User data deleted' });
+  } catch (error) {
+    console.error('Delete error:', error.message);
+    res.status(500).json({ error: 'Failed to delete user data: ' + error.message });
+  }
+})
+
+module.exports = router;

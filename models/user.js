@@ -1,10 +1,41 @@
 const mongoose = require('mongoose');
-
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const iv = crypto.randomBytes(16);
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, unique: true, lowercase: true },
+  name: { type: String, required: true },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    set: (value) => {
+      const cipher = crypto.createCipheriv('aes-256-cbc', process.env.ENCRYPTION_KEY, iv);
+      return cipher.update(value, 'utf8', 'hex') + cipher.final('hex');
+    },
+    get: (value) => {
+      try {
+        const decipher = crypto.createDecipher('aes-256-cbc', process.env.ENCRYPTION_KEY);
+        return decipher.update(value, 'hex', 'utf8') + decipher.final('utf8');
+      } catch (error) {
+        return value; // Return raw value if decryption fails
+      }
+    }
+  },
   password: { type: String, required: true },
-  role: { type: String, enum: ['User', 'Psychologist', 'Admin'], default: 'User' }
+  role: { type: String, enum: ['User', 'Psychologist', 'Admin'], default: 'User' },
+  refreshToken: { type: String }
+}, { toJSON: { getters: true }, toObject: { getters: true } });
+
+// Hash password before saving
+userSchema.pre('save', async function (next) {
+  if (this.isModified('password')) {
+    this.password = await bcrypt.hash(this.password, 10);
+  }
+  next();
 });
+
+userSchema.methods.comparePassword = async function (password) {
+  return await bcrypt.compare(password, this.password);
+};
 
 module.exports = mongoose.model('User', userSchema);
