@@ -13,7 +13,9 @@ model.to(device)
 
 # Load sentiment analysis model
 sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-
+@app.route("/", methods=["GET"])
+def health_check():
+    return jsonify({"status": "ok"})
 @app.route("/chat", methods=["POST"])
 def chat():
     print("✅ /chat route hit")

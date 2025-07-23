@@ -1,60 +1,70 @@
 const express = require('express');
 const router = express.Router();
-const Payment = require('../models/payment');
-const authMiddleware = require('../middleware/authMiddleware');
-const appointment = require('../models/appointment')
-// POST /api/payments
-router.post('/', authMiddleware, async (req, res) => {
-  try {
-    const { appointmentId, amount, method } = req.body;
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || '');
+const authenticateToken = require('../middleware/authMiddleware');
+const Transaction = require('../models/transaction');
 
-    if (!appointmentId || !amount || !method) {
-      return res.status(400).json({ message: 'Missing payment info' });
+// Currency-specific minimums (in smallest unit, e.g., paisa for PKR, cents for USD)
+const MINIMUM_AMOUNT = {
+  usd: 100, // 100 cents = $1.00
+  pkr: 10000, // 100 PKR = 10,000 paisa (approx. £0.30)
+};
+
+// Create payment intent
+router.post('/create-payment-intent', authenticateToken, async (req, res) => {
+  try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not defined');
     }
 
-    const payment = new Payment({
-      userId: req.user.userId,
-      appointmentId,
+    const { amount, currency = 'usd' } = req.body;
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
+
+    const minAmount = MINIMUM_AMOUNT[currency.toLowerCase()];
+    if (!minAmount) {
+      return res.status(400).json({ error: `Unsupported currency: ${currency}` });
+    }
+    if (amount < minAmount) {
+      return res.status(400).json({ error: `Amount must be at least ${minAmount} ${currency.toUpperCase()}` });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
       amount,
-      paymentMethod: method,
-      paymentStatus: 'Success' // simulate successful payment
+      currency,
+      metadata: { userId: req.user.userId },
     });
 
-    await payment.save();
-    await appointment.findByIdAndUpdate(appointmentId, {
-    isPaid: true,
-    paymentId: payment._id
+    const transaction = new Transaction({
+      userId: req.user.userId,
+      stripePaymentId: paymentIntent.id,
+      amount,
+      currency,
+      status: paymentIntent.status
     });
+    await transaction.save();
 
-    res.status(201).json({ message: 'Payment recorded', payment });
-  } catch (err) {
-    console.error('Payment error:', err);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
-// routes/payment.js
-router.get('/', authMiddleware, async (req, res) => {
-  try {
-    const payments = await Payment.find({ userId: req.user.userId });
-    res.status(200).json(payments);
+    console.log(`💸 Payment intent created: ${paymentIntent.id}`);
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      transactionId: transaction._id
+    });
   } catch (error) {
-    console.error('Error fetching payments:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Payment error:', error.message);
+    res.status(500).json({ error: 'Payment failed: ' + error.message });
   }
 });
 
-// routes/payment.js
-router.get('/my-payments', authMiddleware, async (req, res) => {
+// Get transaction history
+router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const payments = await Payment.find({ userId: req.user.userId })
-      .populate('appointmentId'); // optional
-
-    res.status(200).json(payments);
+    const transactions = await Transaction.find({ userId: req.user.userId });
+    res.json(transactions);
   } catch (error) {
-    console.error('Payment history error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Transaction history error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch transaction history' });
   }
 });
-
 
 module.exports = router;

@@ -1,14 +1,13 @@
 const express = require('express');
-const router = express.Router();
+const router = express.Router(); // Must be defined at the top
 const verifyToken = require('../middleware/authMiddleware');
 const Appointment = require('../models/appointment');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
-const User = require('../models/user');
+const cron = require('node-cron');
 require('dotenv').config();
 
 // @route POST /api/appointments/book
-// @desc Book a new appointment
 router.post('/book', verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -20,13 +19,11 @@ router.post('/book', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Validate psychologistId as ObjectId
     if (!mongoose.Types.ObjectId.isValid(psychologistId)) {
       await session.abortTransaction();
       return res.status(400).json({ message: 'Invalid psychologistId format' });
     }
 
-    // Check for maximum 3 active bookings (excluding cancelled)
     const activeBookings = await Appointment.countDocuments({
       userId: req.user.userId,
       status: 'Booked',
@@ -37,7 +34,6 @@ router.post('/book', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Maximum 3 bookings allowed' });
     }
 
-    // R6: Check for time conflict with existing appointments
     const conflictingAppointment = await Appointment.findOne({
       psychologistId,
       date,
@@ -49,7 +45,6 @@ router.post('/book', verifyToken, async (req, res) => {
       return res.status(400).json({ message: 'Time slot already booked' });
     }
 
-    // R7: Verify psychologist role
     const psychologist = await User.findById(psychologistId).session(session);
     if (!psychologist || psychologist.role !== 'Psychologist') {
       await session.abortTransaction();
@@ -85,7 +80,6 @@ router.post('/book', verifyToken, async (req, res) => {
       await transporter.sendMail(mailOptions);
     } catch (emailError) {
       console.error('Email sending error:', emailError);
-      // Proceed without aborting transaction to avoid data loss
     }
 
     res.status(201).json({ message: 'Appointment booked successfully', appointment: newAppointment });
@@ -99,10 +93,10 @@ router.post('/book', verifyToken, async (req, res) => {
 });
 
 // @route GET /api/appointments/my
-// @desc Get user's appointments
 router.get('/my', verifyToken, async (req, res) => {
   try {
-    const appointments = await Appointment.find({ userId: req.user.userId }).populate('psychologistId', 'name email');
+    const appointments = await Appointment.find({ userId: req.user.userId, status: 'Booked' })
+      .populate('psychologistId', 'name');
     res.status(200).json({ appointments });
   } catch (err) {
     console.error('Fetch error:', err);
@@ -111,7 +105,6 @@ router.get('/my', verifyToken, async (req, res) => {
 });
 
 // @route DELETE /api/appointments/cancel/:id
-// @desc Cancel an appointment
 router.delete('/cancel/:id', verifyToken, async (req, res) => {
   try {
     const appointment = await Appointment.findOne({ _id: req.params.id, userId: req.user.userId });
@@ -134,4 +127,47 @@ router.delete('/cancel/:id', verifyToken, async (req, res) => {
   }
 });
 
+// Reminder function
+async function checkReminders() {
+  try {
+    const upcoming = await Appointment.find({
+      date: { $gt: new Date(), $lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      status: 'Booked',
+      'timeSlot': { $regex: /^(\d{1,2}:00|\d{1,2}:30)/ }
+    }).populate('userId', 'email name');
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+
+    for (const apt of upcoming) {
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: apt.userId.email,
+        subject: 'Appointment Reminder',
+        text: `Hi ${apt.userId.name}, this is a reminder for your appointment on ${apt.date} at ${apt.timeSlot}.`
+      };
+      await transporter.sendMail(mailOptions);
+      console.log(`Reminder sent to ${apt.userId.email} for ${apt.date} ${apt.timeSlot}`);
+    }
+  } catch (err) {
+    console.error('Reminder error:', err);
+  }
+}
+
+// Schedule the cron job to run every hour
+cron.schedule('0 * * * *', async () => {
+  await checkReminders();
+});
+
+// Export only the router for server.js
 module.exports = router;
+module.exports.checkReminders = checkReminders;
+// Export an object with both for testing purposes (optional, can be in a separate file)
+if (require.main === module) {
+  module.exports = { router, checkReminders };
+}
