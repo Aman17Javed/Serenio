@@ -1,8 +1,13 @@
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+import os
 from transformers import BlenderbotTokenizer, BlenderbotForConditionalGeneration, pipeline
 import torch
 
 app = Flask(__name__)
+
+# Load .env from root
+load_dotenv()  # Add this line to load the root .env
 
 # Load Blenderbot model and tokenizer
 model_name = "facebook/blenderbot-400M-distill"
@@ -13,29 +18,28 @@ model.to(device)
 
 # Load sentiment analysis model
 sentiment_analyzer = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+
 @app.route("/", methods=["GET"])
 def health_check():
     return jsonify({"status": "ok"})
+
 @app.route("/chat", methods=["POST"])
 def chat():
     print("✅ /chat route hit")
     try:
-        # Force JSON parsing with error handling
         data = request.get_json(force=True, silent=False)
         user_input = data.get("message", "").strip()
         if not user_input:
             print("❌ Error: No message provided")
             return jsonify({"error": "No message provided"}), 400
-        # Generate chatbot response
         inputs = tokenizer(user_input, return_tensors="pt").to(device)
         output = model.generate(
             **inputs,
             max_new_tokens=100,
-            do_sample=True,  # Use valid parameter
-            num_beams=5      # Use beam search for better responses
+            do_sample=True,
+            num_beams=5
         )
         response = tokenizer.decode(output[0], skip_special_tokens=True)
-        # Perform sentiment analysis
         sentiment_result = sentiment_analyzer(user_input)[0]
         sentiment = sentiment_result['label']
         confidence = sentiment_result['score']
@@ -49,5 +53,5 @@ def chat():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    port = int(os.environ.get('PORT', 5001))
+    port = int(os.environ.get('FLASK_PORT', os.environ.get('PORT', 5001)))  # Prioritize FLASK_PORT
     app.run(host='0.0.0.0', port=port)

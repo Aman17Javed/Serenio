@@ -40,14 +40,39 @@ router.post('/register', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
+
     const user = new User({ name, email, password, role: 'User' });
     await user.save();
-    res.status(201).json({ message: `User ${name} registered successfully.` });
+
+    // Generate tokens just like login
+    const accessToken = jwt.sign(
+      { userId: user._id, name: user.name, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    // Return the tokens along with the success message
+    res.status(201).json({
+      message: `User ${name} registered successfully.`,
+      accessToken,
+      refreshToken
+    });
+
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 router.put('/profile', authenticateToken, async (req, res) => {
   try {

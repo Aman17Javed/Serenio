@@ -7,7 +7,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const axios = require('axios');
 
 const FLASK_HOST = '127.0.0.1';
-const FLASK_PORT = 7000;
+const FLASK_PORT = 5001;
 const FLASK_URL = `http://${FLASK_HOST}:${FLASK_PORT}`;
 
 const testFlaskConnection = async () => {
