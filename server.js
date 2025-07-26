@@ -6,6 +6,7 @@ const app = express();
 require('dotenv').config();
 const FLASK_URL = process.env.FLASK_URL || `http://127.0.0.1:${process.env.FLASK_PORT || 5001}`;
 const axios = require('axios');
+const path = require("path");
 
 const cors = require('cors');
 app.use(cors({ origin: 'http://localhost:3000' }));
@@ -20,6 +21,9 @@ app.use('/api/auth', authRoutes);
 
 const privateRoutes = require('./routes/private');
 app.use('/api/private', privateRoutes);
+
+const psychologistRoutes = require("./routes/psychologistRoutes");
+app.use("/api", psychologistRoutes);
 
 const profileRoutes = require('./routes/profile');
 app.use('/api/profile', profileRoutes);
@@ -43,7 +47,7 @@ app.use('/api/chatbot', chatbotRoute);
 app.get('/', (req, res) => {
   res.send('Serenio backend is live 🚀');
 });
-
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))

@@ -5,10 +5,11 @@ const Appointment = require('../models/appointment');
 const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
+const Psychologist = require("../models/psychologist");
 require('dotenv').config();
 
 // @route POST /api/appointments/book
-router.post('/book', verifyToken, async (req, res) => {
+router.post("/book", verifyToken, async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   try {
@@ -16,77 +17,83 @@ router.post('/book', verifyToken, async (req, res) => {
 
     if (!psychologistId || !date || !timeSlot) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     if (!mongoose.Types.ObjectId.isValid(psychologistId)) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Invalid psychologistId format' });
+      return res.status(400).json({ message: "Invalid psychologistId format" });
     }
 
     const activeBookings = await Appointment.countDocuments({
       userId: req.user.userId,
-      status: 'Booked',
-      $nor: [{ status: 'Cancelled' }]
+      status: "Booked",
+      $nor: [{ status: "Cancelled" }],
     }).session(session);
     if (activeBookings >= 3) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Maximum 3 bookings allowed' });
+      return res.status(400).json({ message: "Maximum 3 bookings allowed" });
     }
 
     const conflictingAppointment = await Appointment.findOne({
       psychologistId,
       date,
       timeSlot,
-      status: 'Booked'
+      status: "Booked",
     }).session(session);
     if (conflictingAppointment) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Time slot already booked' });
+      return res.status(400).json({ message: "Time slot already booked" });
     }
 
-    const psychologist = await User.findById(psychologistId).session(session);
-    if (!psychologist || psychologist.role !== 'Psychologist') {
+    const psychologist = await Psychologist.findById(psychologistId).session(session);
+    if (!psychologist) {
       await session.abortTransaction();
-      return res.status(400).json({ message: 'Invalid or unavailable psychologist' });
+      return res.status(400).json({ message: "Invalid or unavailable psychologist" });
+    }
+
+    const user = await User.findById(req.user.userId).session(session); // For email
+    if (!user) {
+      await session.abortTransaction();
+      return res.status(400).json({ message: "User not found" });
     }
 
     const newAppointment = new Appointment({
       userId: req.user.userId,
       psychologistId,
       date,
-      timeSlot
+      timeSlot,
     });
 
     await newAppointment.save({ session });
     await session.commitTransaction();
 
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
     });
 
     const mailOptions = {
       from: process.env.GMAIL_USER,
-      to: req.user.email,
-      subject: 'Appointment Booked',
-      text: `Your appointment is booked for ${date} at ${timeSlot}.`
+      to: user.email,
+      subject: "Appointment Booked",
+      text: `Your appointment is booked for ${date} at ${timeSlot} with ${psychologist.name}.`,
     };
 
     try {
       await transporter.sendMail(mailOptions);
     } catch (emailError) {
-      console.error('Email sending error:', emailError);
+      console.error("Email sending error:", emailError);
     }
 
-    res.status(201).json({ message: 'Appointment booked successfully', appointment: newAppointment });
+    res.status(201).json({ message: "Appointment booked successfully", appointment: newAppointment });
   } catch (err) {
     await session.abortTransaction();
-    console.error('Booking error:', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Booking error:", err);
+    res.status(500).json({ message: "Server error" });
   } finally {
     session.endSession();
   }
