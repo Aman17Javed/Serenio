@@ -5,7 +5,7 @@ async function generateReply(message) {
     console.log("➡️ Sending message to Flask:", message);
 
     const response = await axios.post(
-      "http://127.0.0.1:7000/chat",
+      "http://127.0.0.1:5001/chat", // Changed from 7000 to 5001
       { message },
       { headers: { "Content-Type": "application/json" } }
     );

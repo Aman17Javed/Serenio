@@ -78,6 +78,7 @@ router.post('/message', authenticateToken, async (req, res) => {
     const successResponse = {
       userMessage: message,
       botReply,
+      sentiment,
       sessionId,
       timestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' }),
       responseTime: Date.now() - startTime
