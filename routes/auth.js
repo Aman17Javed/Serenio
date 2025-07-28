@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
     const accessToken = jwt.sign(
       { userId: user._id, name: user.name, email: user.email, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '9999y' }
     );
 
     const refreshToken = jwt.sign(

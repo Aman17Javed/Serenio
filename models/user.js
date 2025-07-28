@@ -5,22 +5,12 @@ const iv = crypto.randomBytes(16);
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: {
-    type: String,
-    required: true,
-    unique: true,
-    set: (value) => {
-      const cipher = crypto.createCipheriv('aes-256-cbc', process.env.ENCRYPTION_KEY, iv);
-      return cipher.update(value, 'utf8', 'hex') + cipher.final('hex');
-    },
-    get: (value) => {
-      try {
-        const decipher = crypto.createDecipher('aes-256-cbc', process.env.ENCRYPTION_KEY);
-        return decipher.update(value, 'hex', 'utf8') + decipher.final('utf8');
-      } catch (error) {
-        return value; // Return raw value if decryption fails
-      }
-    }
-  },
+  type: String,
+  required: true,
+  unique: true,
+  lowercase: true,
+  trim: true
+},
   password: { type: String, required: true },
   role: { type: String, enum: ['User', 'Psychologist', 'Admin'], default: 'User' },
   refreshToken: { type: String }

@@ -1,8 +1,15 @@
 // routes/chat.js
 const express = require('express');
-const router  = express.Router();
+const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
 const ChatLog = require('../models/chatlog');
+const { OpenAI } = require('openai');
+require('dotenv').config(); // Load env variables
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 /**
  * POST /api/chat
@@ -13,14 +20,29 @@ router.post('/', authenticateToken, async (req, res) => {
     const { message } = req.body;
     if (!message) return res.status(400).json({ message: 'Message required' });
 
-    /*  <<< Placeholder AI response  >>>  */
-    // TODO: Replace with Hugging Face / LangChain call
-    const aiResponse = `You said: "${message}". I'm here to listen.`;
+    // 🔮 GPT-4o response from OpenAI
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "You are a supportive and non-judgmental mental health assistant. Be empathetic, concise, and safe in your responses."
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 200
+    });
 
-    /*  (Optional) placeholder sentiment  */
+    const aiResponse = completion.choices[0].message.content.trim();
+
+    // Optional: basic placeholder sentiment for now
     const sentiment = 'neutral';
 
-    /*  Save chat to DB  */
+    // Save to MongoDB
     const log = await ChatLog.create({
       userId: req.user.userId,
       message,
@@ -28,7 +50,12 @@ router.post('/', authenticateToken, async (req, res) => {
       sentiment
     });
 
-    res.status(200).json({ response: aiResponse, sentiment, logId: log._id });
+    res.status(200).json({
+      response: aiResponse,
+      sentiment,
+      logId: log._id
+    });
+
   } catch (err) {
     console.error('Chat error:', err);
     res.status(500).json({ message: 'Server error' });

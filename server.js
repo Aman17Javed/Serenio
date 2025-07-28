@@ -32,7 +32,7 @@ const appointmentRoutes = require('./routes/appointment');
 app.use('/api/appointments', appointmentRoutes);
 
 const paymentRoutes = require('./routes/payment');
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payment', paymentRoutes);
 
 const chatRoutes = require('./routes/chat');
 app.use('/api/chat', chatRoutes);

@@ -44,8 +44,9 @@ router.put(
 router.get("/psychologists", verifyToken, async (req, res) => {
   try {
     const psychologists = await Psychologist.find().select(
-      "name specialization rating reviews experience availability imageUrl bio"
+      "_id name specialization rating reviews experience availability imageUrl hourlyRate bio"
     );
+    console.log("Psychologists returned:", JSON.stringify(psychologists, null, 2));
     res.status(200).json(psychologists);
   } catch (err) {
     console.error("Error fetching psychologists:", err);

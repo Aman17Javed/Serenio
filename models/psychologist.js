@@ -9,6 +9,11 @@ const psychologistSchema = new mongoose.Schema({
   experience: { type: String },
   availability: { type: String },
   imageUrl: { type: String },
+  hourlyRate: {
+  type: Number,
+  required: true,
+  default: 2000 // e.g., in PKR
+    },
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
   lastUpdated: { type: Date, default: Date.now } // Optional
