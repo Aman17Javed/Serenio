@@ -41,6 +41,7 @@ router.put(
   }
 );
 
+
 router.get("/psychologists", verifyToken, async (req, res) => {
   try {
     const psychologists = await Psychologist.find().select(
@@ -53,5 +54,18 @@ router.get("/psychologists", verifyToken, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// router.get('/:id', verifyToken, async (req, res) => {
+//   try {
+//     const psychologist = await Psychologist.findById(req.params.id);
+//     if (!psychologist) {
+//       return res.status(404).json({ message: "Psychologist not found" });
+//     }
+//     res.json(psychologist);
+//   } catch (error) {
+//     console.error("Error fetching psychologist:", error);
+//     res.status(500).json({ message: "Failed to fetch psychologist", error: error.message });
+//   }
+// });
 
 module.exports = router;

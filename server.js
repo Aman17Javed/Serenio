@@ -28,8 +28,17 @@ app.use("/api", psychologistRoutes);
 const profileRoutes = require('./routes/profile');
 app.use('/api/profile', profileRoutes);
 
+const moodRoutes = require('./routes/mood'); // Ensure this line exists
+app.use('/api/mood', moodRoutes);
+
 const appointmentRoutes = require('./routes/appointment');
 app.use('/api/appointments', appointmentRoutes);
+
+// const adminRoutes = require('./routes/admin');
+// app.use('/api/admin', adminRoutes);
+
+const simpleAdminRoutes = require('./routes/simpleadmin');
+app.use('/api/admin', simpleAdminRoutes);
 
 const paymentRoutes = require('./routes/payment');
 app.use('/api/payment', paymentRoutes);
@@ -37,33 +46,43 @@ app.use('/api/payment', paymentRoutes);
 const chatRoutes = require('./routes/chat');
 app.use('/api/chat', chatRoutes);
 
+app.use('/api/chatlogs', require('./routes/chatlog'));
+app.use('/api/openai', require('./routes/openai'));
+
 const webhookRoutes = require('./routes/webhook');
 app.use('/api/webhook', webhookRoutes);
 
 const chatbotRoute = require('./routes/chatbot');
 app.use('/api/chatbot', chatbotRoute);
 
-// Base route
-app.get('/', (req, res) => {
-  res.send('Serenio backend is live 🚀');
-});
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB Connected'))
-  .catch((err) => console.error('❌ MongoDB Connection Error:', err));
+// New dashboard routes (adjusted mounting with debug)
+const dashboardRoutes = require('./routes/dashboard');
+if (!dashboardRoutes || typeof dashboardRoutes !== 'function') {
+  console.error('❌ Failed to load dashboardRoutes from ./routes/dashboard. Check file path or syntax.');
+} else {
+  console.log('✅ Loaded dashboardRoutes successfully');
+}
+app.use('/api/dashboard', dashboardRoutes);
 
 const reportRoutes = require('./routes/report');
 app.use('/api/report', reportRoutes);
-// console.log('Routes loaded:', require('./routes/profile'));
-// Start server
+
 const recommendationRoutes = require('./routes/recommendations');
 app.use('/api/recommendations', recommendationRoutes);
 
 const feedbackRoutes = require('./routes/feedback');
 app.use('/api/feedback', feedbackRoutes);
 
+// Base route
+app.get('/', (req, res) => {
+  res.send('Serenio backend is live 🚀');
+});
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// MongoDB Connection
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch((err) => console.error('❌ MongoDB Connection Error:', err));
 
 async function checkFlaskHealth() {
   try {

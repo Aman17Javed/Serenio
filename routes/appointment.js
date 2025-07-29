@@ -1,187 +1,158 @@
+
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/authMiddleware');
+const authenticateToken = require('../middleware/authMiddleware');
 const Appointment = require('../models/appointment');
-const mongoose = require('mongoose');
-const nodemailer = require('nodemailer');
-const cron = require('node-cron');
-const Psychologist = require("../models/psychologist");
-const User = require("../models/user"); // Added User model
-require('dotenv').config();
 
-
-// @route POST /api/appointments/book
-router.post("/book", verifyToken, async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+router.post('/book', authenticateToken, async (req, res) => {
   try {
-    const { psychologistId, date, timeSlot } = req.body;
-    console.log("Booking attempt:", { psychologistId, date, timeSlot, userId: req.user.userId });
-
+    const { psychologistId, date, timeSlot, reason } = req.body;
     if (!psychologistId || !date || !timeSlot) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(psychologistId)) {
-      console.log("Invalid ObjectId format:", psychologistId);
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Invalid psychologistId format" });
+    // Use authenticated userId from middleware
+    const userId = req.user.userId; // authenticateToken sets req.user.userId
+    if (!userId) {
+      return res.status(401).json({ message: "User not authenticated" });
     }
 
-    const psychologist = await Psychologist.findById(psychologistId); // Removed .session(session)
-    console.log("Found psychologist for ID:", psychologistId, "Result:", psychologist);
-    if (!psychologist) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Invalid or unavailable psychologist" });
-    }
-
-    const activeBookings = await Appointment.countDocuments({
-      userId: req.user.userId,
-      status: "Booked",
-      $nor: [{ status: "Cancelled" }],
-    }).session(session);
-    if (activeBookings >= 3) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Maximum 3 bookings allowed" });
-    }
-
-    const conflictingAppointment = await Appointment.findOne({
+    // Check if the time slot is already booked
+    const existingAppointment = await Appointment.findOne({
       psychologistId,
       date,
       timeSlot,
-      status: "Booked",
-    }).session(session);
-    if (conflictingAppointment) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "Time slot already booked" });
+      status: { $in: ['Booked', 'Completed'] }
+    });
+
+    if (existingAppointment) {
+      return res.status(409).json({ message: "This time slot is already booked" });
     }
 
-    const user = await User.findById(req.user.userId).session(session);
-    if (!user) {
-      await session.abortTransaction();
-      return res.status(400).json({ message: "User not found" });
-    }
-
-    const newAppointment = new Appointment({
-      userId: req.user.userId,
-      psychologistId,
-      date: new Date(date),
-      status: "Booked",
+    // Check if user already has an appointment at this time
+    const userExistingAppointment = await Appointment.findOne({
+      userId,
+      date,
       timeSlot,
+      status: { $in: ['Booked', 'Completed'] }
     });
 
-    await newAppointment.save({ session });
-    await session.commitTransaction();
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD,
-      },
-    });
-
-    const psychologistUser = await User.findById(psychologist.userId); // Removed .session(session)
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: user.email,
-      subject: "Appointment Booked",
-      text: `Your appointment is booked for ${date} at ${timeSlot} with ${psychologistUser?.name || psychologist.name}.`,
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch (emailError) {
-      console.error("Email sending error:", emailError);
+    if (userExistingAppointment) {
+      return res.status(409).json({ message: "You already have an appointment at this time" });
     }
 
-    res.status(201).json({ message: "Appointment booked successfully", appointment: newAppointment });
-  } catch (err) {
-    await session.abortTransaction();
-    console.error("Booking error:", err);
-    res.status(500).json({ message: "Server error" });
-  } finally {
-    session.endSession();
+    const appointment = new Appointment({
+      userId,
+      psychologistId,
+      date,
+      timeSlot,
+      reason,
+      status: "Booked",
+    });
+    await appointment.save();
+
+    res.status(201).json(appointment);
+  } catch (error) {
+    console.error("Booking error:", error);
+    res.status(500).json({ message: "Failed to book appointment", error: error.message });
   }
 });
-// @route GET /api/appointments/my
-router.get("/my", verifyToken, async (req, res) => {
+
+router.get('/available-slots', authenticateToken, async (req, res) => {
+  try {
+    const { psychologistId, date } = req.query;
+    
+    if (!psychologistId || !date) {
+      return res.status(400).json({ message: "Missing psychologistId or date parameter" });
+    }
+
+    // Get all booked appointments for this psychologist on this date
+    const bookedAppointments = await Appointment.find({
+      psychologistId,
+      date,
+      status: { $in: ['Booked', 'Completed'] }
+    }).select('timeSlot');
+
+    const bookedTimeSlots = bookedAppointments.map(apt => apt.timeSlot);
+
+    // Define available time slots (9 AM to 5 PM, hourly)
+    const allTimeSlots = [
+      "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"
+    ];
+
+    const availableSlots = allTimeSlots.filter(slot => !bookedTimeSlots.includes(slot));
+
+    res.json({
+      date,
+      psychologistId,
+      availableSlots,
+      bookedSlots: bookedTimeSlots
+    });
+  } catch (error) {
+    console.error("Error fetching available slots:", error);
+    res.status(500).json({ message: "Failed to fetch available slots" });
+  }
+});
+
+// Get user's appointments
+router.get('/my-appointments', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const appointments = await Appointment.find({ userId })
-      .populate("psychologistId", "name specialization");
+      .populate('psychologistId', 'name specialization')
+      .sort({ date: 1, timeSlot: 1 });
 
-    res.json({ appointments });
-  } catch (err) {
-    console.error("Fetch appointments error:", err.message);
+    res.json(appointments);
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
     res.status(500).json({ message: "Failed to fetch appointments" });
   }
 });
 
-// @route DELETE /api/appointments/cancel/:id
-router.delete('/cancel/:id', verifyToken, async (req, res) => {
+// Cancel appointment
+router.put('/cancel/:appointmentId', authenticateToken, async (req, res) => {
   try {
-    const appointment = await Appointment.findOne({ _id: req.params.id, userId: req.user.userId });
+    const { appointmentId } = req.params;
+    const userId = req.user.userId;
 
+    const appointment = await Appointment.findOne({ _id: appointmentId, userId });
+    
     if (!appointment) {
-      return res.status(404).json({ message: 'Appointment not found' });
+      return res.status(404).json({ message: "Appointment not found" });
     }
 
     if (appointment.status === 'Cancelled') {
-      return res.status(400).json({ message: 'Appointment already cancelled' });
+      return res.status(400).json({ message: "Appointment is already cancelled" });
     }
 
     appointment.status = 'Cancelled';
     await appointment.save();
 
-    res.status(200).json({ message: 'Appointment cancelled', appointment });
-  } catch (err) {
-    console.error('Cancel error:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.json({ message: "Appointment cancelled successfully", appointment });
+  } catch (error) {
+    console.error("Error cancelling appointment:", error);
+    res.status(500).json({ message: "Failed to cancel appointment" });
   }
 });
 
-// Reminder function
-async function checkReminders() {
+// Get appointment by ID
+router.get('/:appointmentId', authenticateToken, async (req, res) => {
   try {
-    const upcoming = await Appointment.find({
-      date: { $gt: new Date(), $lte: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-      status: 'Booked',
-      'timeSlot': { $regex: /^(\d{1,2}:00|\d{1,2}:30)/ }
-    }).populate('userId', 'email name').populate('psychologistId', 'name');
+    const { appointmentId } = req.params;
+    const userId = req.user.userId;
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD
-      }
-    });
+    const appointment = await Appointment.findOne({ _id: appointmentId, userId })
+      .populate('psychologistId', 'name specialization');
 
-    for (const apt of upcoming) {
-      const mailOptions = {
-        from: process.env.GMAIL_USER,
-        to: apt.userId.email,
-        subject: 'Appointment Reminder',
-        text: `Hi ${apt.userId.name}, this is a reminder for your appointment on ${apt.date} at ${apt.timeSlot} with ${apt.psychologistId.name}.`
-      };
-      await transporter.sendMail(mailOptions);
-      console.log(`Reminder sent to ${apt.userId.email} for ${apt.date} ${apt.timeSlot}`);
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
     }
-  } catch (err) {
-    console.error('Reminder error:', err);
-  }
-}
 
-// Schedule the cron job to run every hour
-cron.schedule('0 * * * *', async () => {
-  await checkReminders();
+    res.json(appointment);
+  } catch (error) {
+    console.error("Error fetching appointment:", error);
+    res.status(500).json({ message: "Failed to fetch appointment" });
+  }
 });
 
 module.exports = router;
-module.exports.checkReminders = checkReminders;
-
-if (require.main === module) {
-  module.exports = { router, checkReminders };
-}
