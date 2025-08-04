@@ -95,7 +95,7 @@ router.get('/available-slots', authenticateToken, async (req, res) => {
 });
 
 // Get user's appointments
-router.get('/my-appointments', authenticateToken, async (req, res) => {
+router.get('/my', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
     const appointments = await Appointment.find({ userId })

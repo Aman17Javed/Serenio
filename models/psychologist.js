@@ -10,10 +10,15 @@ const psychologistSchema = new mongoose.Schema({
   availability: { type: String },
   imageUrl: { type: String },
   hourlyRate: {
-  type: Number,
-  required: true,
-  default: 2000 // e.g., in PKR
-    },
+    type: Number,
+    required: true,
+    default: 2000 // e.g., in PKR
+  },
+  sessionPrice: {
+    type: Number,
+    required: true,
+    default: 2000 // e.g., in PKR, can be set differently from hourlyRate
+  },
   bio: { type: String },
   createdAt: { type: Date, default: Date.now },
   lastUpdated: { type: Date, default: Date.now } // Optional
