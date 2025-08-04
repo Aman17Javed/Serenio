@@ -9,7 +9,7 @@ const axios = require('axios');
 const path = require("path");
 
 const cors = require('cors');
-app.use(cors({ origin: 'http://localhost:3000' }));
+app.use(cors({ origin: "https://serenio-production.up.railway.app/" }));
 // Middleware
 app.use(helmet());
 app.use(cors());
