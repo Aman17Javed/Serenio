@@ -20,7 +20,7 @@ Create a file `src/services/appointmentService.js`:
 ```javascript
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api/appointments';
+const API_BASE_URL = 'http:///api/appointments';
 
 // Create axios instance with default config
 const appointmentAPI = axios.create({

@@ -9,10 +9,14 @@ const axios = require('axios');
 const path = require("path");
 
 const cors = require('cors');
-app.use(cors({ origin: "https://serenio-production.up.railway.app/" }));
+app.use(cors({
+  origin: "https://serenio-frontend-k6s1.vercel.app",
+  credentials: true,
+}));
+
 // Middleware
 app.use(helmet());
-app.use(cors());
+// app.use(cors());
 app.use(express.json());
 
 // Import and use routes
