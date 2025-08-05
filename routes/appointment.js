@@ -133,6 +133,35 @@ router.put('/cancel/:appointmentId', authenticateToken, async (req, res) => {
   }
 });
 
+// Complete appointment (for psychologists)
+router.put('/complete/:appointmentId', authenticateToken, async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    const psychologistId = req.user.userId;
+
+    // Check if user is a psychologist
+    if (req.user.role !== 'Psychologist') {
+      return res.status(403).json({ message: "Only psychologists can complete appointments" });
+    }
+
+    // Find and update the appointment
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: appointmentId, psychologistId, status: 'Booked' },
+      { status: 'Completed' },
+      { new: true, runValidators: false }
+    );
+    
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found or already completed" });
+    }
+
+    res.json({ message: "Appointment marked as completed", appointment });
+  } catch (error) {
+    console.error("Error completing appointment:", error);
+    res.status(500).json({ message: "Failed to complete appointment" });
+  }
+});
+
 // Get appointment by ID
 router.get('/:appointmentId', authenticateToken, async (req, res) => {
   try {
