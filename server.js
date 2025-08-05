@@ -10,7 +10,7 @@ const path = require("path");
 
 const cors = require('cors');
 app.use(cors({
-  origin: "https://serenio-frontend-lovi.vercel.app",
+  origin: "https://serenio-frontend-inky.vercel.app",
   credentials: true,
 }));
 
