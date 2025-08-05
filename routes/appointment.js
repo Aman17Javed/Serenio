@@ -115,18 +115,16 @@ router.put('/cancel/:appointmentId', authenticateToken, async (req, res) => {
     const { appointmentId } = req.params;
     const userId = req.user.userId;
 
-    const appointment = await Appointment.findOne({ _id: appointmentId, userId });
+    // Use findOneAndUpdate to avoid validation issues
+    const appointment = await Appointment.findOneAndUpdate(
+      { _id: appointmentId, userId, status: { $ne: 'Cancelled' } },
+      { status: 'Cancelled' },
+      { new: true, runValidators: false }
+    );
     
     if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
+      return res.status(404).json({ message: "Appointment not found or already cancelled" });
     }
-
-    if (appointment.status === 'Cancelled') {
-      return res.status(400).json({ message: "Appointment is already cancelled" });
-    }
-
-    appointment.status = 'Cancelled';
-    await appointment.save();
 
     res.json({ message: "Appointment cancelled successfully", appointment });
   } catch (error) {

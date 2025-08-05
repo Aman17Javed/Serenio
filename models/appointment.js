@@ -12,12 +12,16 @@ const appointmentSchema = new mongoose.Schema({
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(v)) return false;
         
-        // Check if date is not in the past
-        const appointmentDate = new Date(v + 'T00:00:00');
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // Skip date validation if appointment is being cancelled or if this is an update
+        if (this.status === 'Cancelled' || this.isModified('status')) return true;
         
-        return appointmentDate >= today;
+        // Check if date is not in the past (using UTC to avoid timezone issues)
+        const [year, month, day] = v.split('-').map(Number);
+        const appointmentDate = new Date(Date.UTC(year, month - 1, day));
+        const today = new Date();
+        const todayUTC = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+        
+        return appointmentDate >= todayUTC;
       },
       message: 'Date must be in YYYY-MM-DD format and cannot be in the past'
     }
