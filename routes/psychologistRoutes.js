@@ -18,7 +18,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Get psychologist's appointments
-router.get("/appointments", verifyToken, async (req, res) => {
+router.get("/psychologists/appointments", verifyToken, async (req, res) => {
   try {
     const { psychologistId } = req.query;
     const appointments = await Appointment.find({ psychologistId })
