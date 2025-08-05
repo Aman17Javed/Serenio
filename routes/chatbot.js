@@ -4,12 +4,25 @@ const { v4: uuidv4 } = require('uuid');
 const authenticateToken = require('../middleware/authMiddleware');
 const ChatLog = require('../models/chatlog');
 const { OpenAI } = require('openai');
+const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 // 🔑 Initialize OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
+
+// 🔁 Load precomputed embeddings
+const embeddedData = require(path.join(__dirname, '../data/embedded_knowledge.json'));
+
+// 🔢 Cosine similarity function
+function cosineSimilarity(a, b) {
+  const dot = a.reduce((sum, ai, i) => sum + ai * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum, ai) => sum + ai * ai, 0));
+  const normB = Math.sqrt(b.reduce((sum, bi) => sum + bi * bi, 0));
+  return dot / (normA * normB);
+}
 
 router.post('/message', authenticateToken, async (req, res) => {
   const startTime = Date.now();
@@ -30,13 +43,32 @@ router.post('/message', authenticateToken, async (req, res) => {
   console.log(`🧾 Session ID: ${sessionId}`);
 
   try {
-    // 🔮 GPT-4o response
+    // 🔍 Embed user message
+    const userEmbeddingRes = await openai.embeddings.create({
+      model: 'text-embedding-ada-002',
+      input: message
+    });
+    const userEmbedding = userEmbeddingRes.data[0].embedding;
+
+    // 🔍 Find top 3 relevant knowledge chunks
+    const topChunks = embeddedData
+      .map(item => ({
+        similarity: cosineSimilarity(userEmbedding, item.embedding),
+        text: item.text
+      }))
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 3)
+      .map(item => item.text);
+
+    const ragContext = topChunks.join('\n\n');
+
+    // 🔮 GPT-4o with RAG
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: 'You are a supportive and non-judgmental mental health assistant. Respond empathetically and respectfully.'
+          content: 'You are a supportive and non-judgmental mental health assistant. Use the following context to help the user if relevant:\n\n' + ragContext
         },
         {
           role: 'user',
@@ -93,12 +125,12 @@ router.post('/message', authenticateToken, async (req, res) => {
   }
 });
 
-// ✅ Static health check (no Flask involved anymore)
+// ✅ Static health check
 router.get('/health', (req, res) => {
   console.log('🏥 Health check requested');
   res.status(200).json({
     status: 'healthy',
-    gptModel: 'gpt-4o',
+    gptModel: 'gpt-4o + RAG',
     timestamp: new Date().toLocaleString('en-US', { timeZone: 'Asia/Karachi' })
   });
 });
@@ -111,6 +143,6 @@ router.get('/test', (req, res) => {
   });
 });
 
-console.log(`🤖 Chatbot router loaded with OpenAI GPT-4o`);
+console.log(`🤖 Chatbot router loaded with OpenAI GPT-4o and RAG`);
 
 module.exports = router;
