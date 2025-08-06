@@ -4,6 +4,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
 const User = require('../models/user');
+const Psychologist = require('../models/psychologist');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('../middleware/authMiddleware');
 
@@ -34,15 +35,37 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, role, specialization, experience, availability, hourlyRate, bio } = req.body;
   try {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    const user = new User({ name, email, password, role: 'User' });
+    // Create user with the provided role (defaults to 'User' if not specified)
+    const user = new User({ 
+      name, 
+      email, 
+      password, 
+      role: role || 'User' 
+    });
     await user.save();
+
+    // If registering as a psychologist, create a corresponding Psychologist record
+    if (role === 'Psychologist') {
+      const psychologist = new Psychologist({
+        userId: user._id,
+        name: name,
+        specialization: specialization || 'General Psychology',
+        experience: experience || 'Not specified',
+        availability: availability || 'Available on weekdays',
+        hourlyRate: hourlyRate || 2000,
+        sessionPrice: hourlyRate || 2000,
+        bio: bio || 'Professional psychologist ready to help you.'
+      });
+      await psychologist.save();
+      console.log('✅ Psychologist profile created for user:', user._id);
+    }
 
     // Generate tokens just like login
     const accessToken = jwt.sign(
