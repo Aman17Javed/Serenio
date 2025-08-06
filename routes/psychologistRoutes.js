@@ -146,27 +146,63 @@ router.put("/psychologists/toggle-availability", verifyToken, async (req, res) =
 router.get("/psychologists/stats", verifyToken, async (req, res) => {
   try {
     const psychologistId = req.user.userId;
+    console.log("📊 Fetching stats for psychologist:", psychologistId);
     
-    // Get appointments for this psychologist
+    // Get appointments for this specific psychologist only
     const appointments = await Appointment.find({ psychologistId });
+    console.log("📋 Found appointments:", appointments.length);
     
-    // Weekly bookings (mock data for now)
+    // Get psychologist profile to get hourly rate
+    const psychologist = await Psychologist.findOne({ userId: psychologistId });
+    const hourlyRate = psychologist?.hourlyRate || 2000;
+    
+    // Calculate real weekly bookings based on recent appointments
+    const now = new Date();
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+    const threeWeeksAgo = new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000);
+    const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
+    
     const bookings = [
-      { week: "Week 1", bookings: appointments.filter(a => a.status === 'Booked').length },
-      { week: "Week 2", bookings: Math.floor(Math.random() * 10) },
-      { week: "Week 3", bookings: Math.floor(Math.random() * 10) },
-      { week: "Week 4", bookings: Math.floor(Math.random() * 10) }
+      { 
+        week: "Week 1", 
+        bookings: appointments.filter(a => new Date(a.date) >= oneWeekAgo).length 
+      },
+      { 
+        week: "Week 2", 
+        bookings: appointments.filter(a => new Date(a.date) >= twoWeeksAgo && new Date(a.date) < oneWeekAgo).length 
+      },
+      { 
+        week: "Week 3", 
+        bookings: appointments.filter(a => new Date(a.date) >= threeWeeksAgo && new Date(a.date) < twoWeeksAgo).length 
+      },
+      { 
+        week: "Week 4", 
+        bookings: appointments.filter(a => new Date(a.date) >= fourWeeksAgo && new Date(a.date) < threeWeeksAgo).length 
+      }
     ];
     
-    // Monthly revenue (mock data for now)
-    const revenue = [
-      { month: "Jan", revenue: appointments.length * 2500 },
-      { month: "Feb", revenue: Math.floor(Math.random() * 50000) },
-      { month: "Mar", revenue: Math.floor(Math.random() * 50000) },
-      { month: "Apr", revenue: Math.floor(Math.random() * 50000) }
-    ];
+    // Calculate real monthly revenue based on completed appointments
+    const completedAppointments = appointments.filter(a => a.status === 'Completed');
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     
-    // Appointment status distribution
+    const revenue = [];
+    for (let i = 3; i >= 0; i--) {
+      const monthDate = new Date(currentYear, currentMonth - i, 1);
+      const monthName = monthDate.toLocaleDateString('en-US', { month: 'short' });
+      const monthRevenue = completedAppointments.filter(a => {
+        const apptDate = new Date(a.date);
+        return apptDate.getMonth() === monthDate.getMonth() && apptDate.getFullYear() === monthDate.getFullYear();
+      }).length * hourlyRate;
+      
+      revenue.push({
+        month: monthName,
+        revenue: monthRevenue
+      });
+    }
+    
+    // Appointment status distribution (real data)
     const statusCounts = {};
     appointments.forEach(appt => {
       statusCounts[appt.status] = (statusCounts[appt.status] || 0) + 1;
@@ -177,6 +213,16 @@ router.get("/psychologists/stats", verifyToken, async (req, res) => {
       value: statusCounts[key]
     }));
     
+    // If no data, provide empty arrays
+    if (appointments.length === 0) {
+      return res.json({ 
+        bookings: bookings.map(b => ({ ...b, bookings: 0 })),
+        revenue: revenue.map(r => ({ ...r, revenue: 0 })),
+        status: []
+      });
+    }
+    
+    console.log("📈 Returning stats - Total appointments:", appointments.length, "Revenue data:", revenue);
     res.json({ bookings, revenue, status });
   } catch (error) {
     console.error("Error fetching stats:", error);
