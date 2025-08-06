@@ -3,6 +3,9 @@ const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/authMiddleware');
 const Appointment = require('../models/appointment');
+const User = require('../models/user');
+const Psychologist = require('../models/psychologist');
+const emailService = require('../services/emailService');
 
 router.post('/book', authenticateToken, async (req, res) => {
   try {
@@ -12,7 +15,7 @@ router.post('/book', authenticateToken, async (req, res) => {
     }
 
     // Use authenticated userId from middleware
-    const userId = req.user.userId; // authenticateToken sets req.user.userId
+    const userId = req.user.userId;
     if (!userId) {
       return res.status(401).json({ message: "User not authenticated" });
     }
@@ -50,6 +53,29 @@ router.post('/book', authenticateToken, async (req, res) => {
       status: "Booked",
     });
     await appointment.save();
+
+    // Send confirmation email
+    try {
+      // Get user and psychologist details for email
+      const user = await User.findById(userId);
+      const psychologist = await Psychologist.findById(psychologistId);
+      
+      if (user && psychologist) {
+        const emailData = {
+          date: appointment.date,
+          timeSlot: appointment.timeSlot,
+          psychologistName: psychologist.name,
+          psychologistSpecialization: psychologist.specialization,
+          reason: appointment.reason
+        };
+        
+        await emailService.sendAppointmentConfirmation(user.email, emailData);
+        console.log('Confirmation email sent successfully');
+      }
+    } catch (emailError) {
+      console.error('Failed to send confirmation email:', emailError);
+      // Don't fail the appointment booking if email fails
+    }
 
     res.status(201).json(appointment);
   } catch (error) {
@@ -120,10 +146,29 @@ router.put('/cancel/:appointmentId', authenticateToken, async (req, res) => {
       { _id: appointmentId, userId, status: { $ne: 'Cancelled' } },
       { status: 'Cancelled' },
       { new: true, runValidators: false }
-    );
+    ).populate('psychologistId', 'name specialization');
     
     if (!appointment) {
       return res.status(404).json({ message: "Appointment not found or already cancelled" });
+    }
+
+    // Send cancellation email
+    try {
+      const user = await User.findById(userId);
+      if (user && appointment.psychologistId) {
+        const emailData = {
+          date: appointment.date,
+          timeSlot: appointment.timeSlot,
+          psychologistName: appointment.psychologistId.name,
+          psychologistSpecialization: appointment.psychologistId.specialization,
+          reason: appointment.reason
+        };
+        await emailService.sendAppointmentCancellation(user.email, emailData);
+        console.log('Cancellation email sent successfully');
+      }
+    } catch (emailError) {
+      console.error('Failed to send cancellation email:', emailError);
+      // Don't fail the cancellation if email fails
     }
 
     res.json({ message: "Appointment cancelled successfully", appointment });
