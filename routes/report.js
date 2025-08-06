@@ -91,9 +91,18 @@ router.get('/session-report/:sessionId', authenticateToken, async (req, res) => 
     const patient = chatLogs[0].userId;
     const timestamp = new Date().toLocaleString("en-US", { timeZone: "Asia/Karachi" });
 
+    // Ensure we only use logs from this specific session
+    const sessionLogs = chatLogs.filter(log => log.sessionId === sessionId);
+    console.log(`📊 Report generation: Found ${sessionLogs.length} logs for session ${sessionId}`);
+    
+    if (sessionLogs.length === 0) {
+      console.log(`❌ No logs found for session ${sessionId}`);
+      return res.status(404).json({ message: 'No chat logs found for this session' });
+    }
+
     // Prepare data for Open AI
-    const conversation = chatLogs.map(log => `User: ${log.message}\nBot: ${log.response}`).join('\n');
-    const sentiments = chatLogs.map(log => log.sentiment).filter(Boolean);
+    const conversation = sessionLogs.map(log => `User: ${log.message}\nBot: ${log.response}`).join('\n');
+    const sentiments = sessionLogs.map(log => log.sentiment).filter(Boolean);
     const dominantSentiment = sentiments.reduce((acc, curr) => {
       acc[curr] = (acc[curr] || 0) + 1;
       return acc;
@@ -166,9 +175,9 @@ Recommendations: Continue regular check-ins and maintain open communication abou
 
     doc.moveDown(2).fontSize(14).text('Session Statistics', { underline: true });
     doc.fontSize(12);
-    doc.text(`Total Messages: ${chatLogs.length}`);
-    doc.text(`Session Duration: ${chatLogs.length > 1 ? 
-      Math.round((new Date(chatLogs[chatLogs.length - 1].createdAt) - new Date(chatLogs[0].createdAt)) / 1000 / 60) : 0} minutes`);
+    doc.text(`Total Messages: ${sessionLogs.length}`);
+    doc.text(`Session Duration: ${sessionLogs.length > 1 ? 
+      Math.round((new Date(sessionLogs[sessionLogs.length - 1].createdAt) - new Date(sessionLogs[0].createdAt)) / 1000 / 60) : 0} minutes`);
     doc.text(`Primary Sentiment: ${primarySentiment}`);
     doc.text(`Sentiment Distribution: ${Object.entries(dominantSentiment).map(([s, c]) => `${s}: ${c}`).join(', ')}`);
 
@@ -178,7 +187,7 @@ Recommendations: Continue regular check-ins and maintain open communication abou
     doc.moveDown(2).fontSize(14).text('Conversation Excerpt', { underline: true });
     doc.fontSize(10);
     // Show first few messages as excerpt
-    const excerpt = chatLogs.slice(0, 3).map(log => 
+    const excerpt = sessionLogs.slice(0, 3).map(log => 
       `User: ${log.message.substring(0, 100)}${log.message.length > 100 ? '...' : ''}\nBot: ${log.response.substring(0, 100)}${log.response.length > 100 ? '...' : ''}`
     ).join('\n\n');
     doc.text(excerpt);
