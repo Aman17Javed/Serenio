@@ -43,6 +43,14 @@ router.post('/message', authenticateToken, async (req, res) => {
   console.log(`🧾 Session ID: ${sessionId}`);
 
   try {
+    // 🔍 Get conversation history for context
+    const conversationHistory = await ChatLog.find({ 
+      sessionId, 
+      userId: req.user.userId 
+    }).sort({ createdAt: 1 }).limit(10); // Get last 10 messages for context
+    
+    console.log(`📚 Found ${conversationHistory.length} previous messages for context`);
+
     // 🔍 Embed user message
     const userEmbeddingRes = await openai.embeddings.create({
       model: 'text-embedding-ada-002',
@@ -62,21 +70,53 @@ router.post('/message', authenticateToken, async (req, res) => {
 
     const ragContext = topChunks.join('\n\n');
 
-    // 🔮 GPT-4o with RAG
+    // 🔮 Build conversation messages array
+    const messages = [
+      {
+        role: 'system',
+        content: `You are Serenio AI, a supportive and non-judgmental mental health assistant. 
+
+IMPORTANT: You have access to the conversation history above. Use this context to provide personalized, continuous support. Remember what the user has shared previously and build upon that conversation.
+
+Use the following knowledge base context if relevant to the user's current message:
+${ragContext}
+
+Guidelines:
+- Be empathetic and supportive
+- Remember previous conversation context
+- Provide practical advice when appropriate
+- Maintain conversation continuity
+- Ask follow-up questions when helpful
+- Keep responses concise but meaningful`
+      }
+    ];
+
+    // Add conversation history
+    conversationHistory.forEach(log => {
+      messages.push({
+        role: 'user',
+        content: log.message
+      });
+      messages.push({
+        role: 'assistant',
+        content: log.response
+      });
+    });
+
+    // Add current message
+    messages.push({
+      role: 'user',
+      content: message
+    });
+
+    console.log(`💬 Sending ${messages.length} messages to AI (including ${conversationHistory.length} previous exchanges)`);
+
+    // 🔮 GPT-4o with RAG and conversation history
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a supportive and non-judgmental mental health assistant. Use the following context to help the user if relevant:\n\n' + ragContext
-        },
-        {
-          role: 'user',
-          content: message
-        }
-      ],
+      messages: messages,
       temperature: 0.7,
-      max_tokens: 200
+      max_tokens: 300 // Increased for better context handling
     });
 
     const botReply = completion.choices[0].message.content.trim();
